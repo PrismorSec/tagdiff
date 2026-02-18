@@ -1,13 +1,22 @@
 import json
+import os
 import requests
+from concurrent.futures import ThreadPoolExecutor
 
 def fetch_releases(repo, stop_at_tag=None):
+    token = os.getenv("GITHUB_TOKEN")
+    headers = {}
+    if token:
+        headers["Authorization"] = f"token {token}"
+
     releases = []
     page = 1
     while True:
         url = f"https://api.github.com/repos/{repo}/releases?page={page}&per_page=100"
-        response = requests.get(url, timeout=30)
+        response = requests.get(url, headers=headers, timeout=30)
         if response.status_code != 200:
+            if response.status_code == 403:
+                raise ValueError("GitHub API rate limit exceeded. Use GITHUB_TOKEN to increase limits.")
             break
             
         data = response.json()
@@ -29,16 +38,14 @@ def fetch_releases(repo, stop_at_tag=None):
     return releases
 
 
-def get_changes_between_versions(releases, old_version, new_version, structured=False):
+def get_changes_between_versions(releases, old_version, new_version, structured=False, model=None, verbose=False):
     changes = {}
     ordered_releases = list(reversed(releases))
 
+    to_process = []
     collecting = False
     for release in ordered_releases:
         tag = release.get("tag_name")
-        published_at = release.get("published_at")
-        changelog = release.get("body")
-
         if tag == old_version:
             collecting = True
             continue
@@ -47,26 +54,55 @@ def get_changes_between_versions(releases, old_version, new_version, structured=
             break
 
         if collecting:
-            change_data = {
-                "published_at": published_at,
-                "changelog": changelog,
-            }
-            if structured and changelog and changelog.strip():
-                structured_data = generate_structured_changelog(changelog)
-                if structured_data:
-                    change_data["structured_changelog"] = structured_data
-            
-            changes[tag] = change_data
+            to_process.append(release)
+
+    def process_release(release):
+        tag = release.get("tag_name")
+        published_at = release.get("published_at")
+        changelog = release.get("body")
+        
+        if verbose:
+            print(f"Processing {tag}...")
+
+        change_data = {
+            "published_at": published_at,
+            "changelog": changelog,
+        }
+        
+        if structured and changelog and changelog.strip():
+            structured_data = generate_structured_changelog(changelog, model=model)
+            if structured_data:
+                change_data["structured_changelog"] = structured_data
+        
+        return tag, change_data
+
+    # Parallelize LLM calls
+    if structured and to_process:
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            results = list(executor.map(process_release, to_process))
+            for tag, data in results:
+                changes[tag] = data
+    else:
+        for release in to_process:
+            tag, data = process_release(release)
+            changes[tag] = data
 
     return changes
 
 
-def get_changelog(repo, old_version, new_version, structured=False):
+def get_changelog(repo, old_version, new_version, structured=False, model=None, verbose=False):
     releases = fetch_releases(repo, stop_at_tag=old_version)
     if not releases:
-        raise ValueError("Could not fetch releases")
+        raise ValueError(f"Could not fetch releases for repo: {repo}")
 
-    changes = get_changes_between_versions(releases, old_version, new_version, structured=structured)
+    changes = get_changes_between_versions(
+        releases, 
+        old_version, 
+        new_version, 
+        structured=structured, 
+        model=model,
+        verbose=verbose
+    )
 
     return {
         "repo": repo,
@@ -76,11 +112,11 @@ def get_changelog(repo, old_version, new_version, structured=False):
     }
 
 
-def generate_structured_changelog(changelog_text):
+def generate_structured_changelog(changelog_text, model=None):
     try:
         from litellm import completion
     except ImportError:
-        return None
+        return {"error": "litellm package missing. Install it with 'pip install litellm'"}
 
     prompt = """
     You are a changelog assistant.
@@ -94,8 +130,8 @@ def generate_structured_changelog(changelog_text):
     Return ONLY JSON. Do not use markdown blocks.
     """
 
-    import os
-    model = os.getenv("TAGDIFF_MODEL", "gpt-3.5-turbo")
+    if not model:
+        model = os.getenv("TAGDIFF_MODEL", "gpt-4o-mini")
 
     try:
         response = completion(
@@ -109,5 +145,4 @@ def generate_structured_changelog(changelog_text):
         content = response.choices[0].message.content
         return json.loads(content)
     except Exception as e:
-        # Fallback or error logging could go here
         return {"error": str(e)}
