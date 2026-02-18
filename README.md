@@ -14,7 +14,6 @@ TagDiff compares GitHub release notes between two version tags.
 - `tagdiff/__init__.py`: package export
 - `pyproject.toml`: package + CLI entrypoint config
 - `Dockerfile`: Docker image setup
-- `requirements.txt`: direct dependency list
 - `startup.txt`: quick start commands
 
 ## Install
@@ -50,4 +49,3 @@ from tagdiff import get_changelog
 result = get_changelog("psf/requests", "v2.31.0", "v2.32.0")
 print(result)
 ```
-# tagdiff
