@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tagdiff"
-version = "0.1.0"
+version = "0.1.1"
 description = "Compare GitHub release changelogs between tags"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -20,6 +20,7 @@ classifiers = [
 dependencies = [
   "requests>=2.31.0",
   "litellm>=1.0.0",
+  "python-dotenv>=1.0.0",
 ]
 
 [project.urls]
