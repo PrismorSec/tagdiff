@@ -1,5 +1,9 @@
 # TagDiff
 
+[![PyPI](https://img.shields.io/pypi/v/tagdiff)](https://pypi.org/project/tagdiff/)
+[![Python](https://img.shields.io/pypi/pyversions/tagdiff)](https://pypi.org/project/tagdiff/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+
 TagDiff compares GitHub release notes between two version tags, lets you search through changelogs by keyword, and can deep-research changes using AI.
 
 ## What It Does
@@ -271,3 +275,7 @@ clear_cache(repo="psf/requests")  # specific repo
 - `GITHUB_TOKEN` - GitHub API token (recommended, avoids rate limits)
 - `TAGDIFF_MODEL` - Default AI model for `--structured` and `analyze` (default: `gpt-5-nano`)
 - `TAGDIFF_CACHE_DIR` - Custom cache directory (default: `~/.cache/tagdiff`)
+
+---
+
+Built by the [Prismor](https://prismor.dev) team.
