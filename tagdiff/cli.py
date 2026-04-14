@@ -7,7 +7,9 @@ from tagdiff.search import search_changelogs
 from tagdiff.analyze import analyze_changelog
 from tagdiff.cache import clear_cache
 from tagdiff.config import DEFAULT_CACHE_TTL
-from tagdiff.formatter import format_search_results
+from tagdiff.formatter import format_search_results, format_issues_result, format_compare_issues, format_compare_versions
+from tagdiff.issues import get_issues_for_version_range, compare_issues
+from tagdiff.pkgcompare import compare_versions
 
 
 def _add_cache_args(parser):
@@ -82,6 +84,73 @@ def analyze_main(args):
     return 0
 
 
+def issues_main(args):
+    try:
+        result = get_issues_for_version_range(
+            args.repo,
+            from_version=args.from_version,
+            to_version=args.to_version,
+            state=args.state,
+            labels=args.labels,
+            verbose=args.verbose,
+            cache=args.cache,
+            cache_ttl=args.cache_ttl,
+        )
+    except ValueError as exc:
+        print(json.dumps({"error": str(exc)}))
+        return 1
+
+    if args.json:
+        _output_result(json.dumps(result, indent=2), args, f"Result saved to {args.output}")
+    else:
+        _output_result(format_issues_result(result), args, f"Result saved to {args.output}")
+    return 0
+
+
+def compare_issues_main(args):
+    try:
+        result = compare_issues(
+            args.repo1, args.repo2,
+            from_version1=args.from1,
+            to_version1=args.to1,
+            from_version2=args.from2,
+            to_version2=args.to2,
+            state=args.state,
+            labels=args.labels,
+            verbose=args.verbose,
+            cache=args.cache,
+            cache_ttl=args.cache_ttl,
+        )
+    except ValueError as exc:
+        print(json.dumps({"error": str(exc)}))
+        return 1
+
+    if args.json:
+        _output_result(json.dumps(result, indent=2), args, f"Result saved to {args.output}")
+    else:
+        _output_result(format_compare_issues(result), args, f"Result saved to {args.output}")
+    return 0
+
+
+def compare_versions_main(args):
+    try:
+        result = compare_versions(
+            args.repo1, args.repo2,
+            verbose=args.verbose,
+            cache=args.cache,
+            cache_ttl=args.cache_ttl,
+        )
+    except ValueError as exc:
+        print(json.dumps({"error": str(exc)}))
+        return 1
+
+    if args.json:
+        _output_result(json.dumps(result, indent=2), args, f"Result saved to {args.output}")
+    else:
+        _output_result(format_compare_versions(result), args, f"Result saved to {args.output}")
+    return 0
+
+
 def clear_cache_main(args):
     removed = clear_cache(repo=args.repo if args.repo else None)
     if args.repo:
@@ -121,6 +190,48 @@ def main():
         parser.add_argument("--output", help="Save analysis to a file")
         _add_cache_args(parser)
         return analyze_main(parser.parse_args())
+
+    elif cmd == "issues":
+        parser = argparse.ArgumentParser(prog="tagdiff issues", description="List GitHub issues for a repo within a version range.")
+        parser.add_argument("_cmd", help=argparse.SUPPRESS)
+        parser.add_argument("repo", help="GitHub repo in owner/name format")
+        parser.add_argument("--from", dest="from_version", default=None, help="Start version tag (inclusive)")
+        parser.add_argument("--to", dest="to_version", default=None, help="End version tag (inclusive)")
+        parser.add_argument("--state", default="all", choices=["open", "closed", "all"], help="Issue state filter (default: all)")
+        parser.add_argument("--labels", default=None, help="Comma-separated label filter (e.g. 'bug,enhancement')")
+        parser.add_argument("--json", action="store_true", help="Output results as JSON")
+        parser.add_argument("--output", help="Save result to a file")
+        parser.add_argument("--verbose", action="store_true", help="Show progress during execution")
+        _add_cache_args(parser)
+        return issues_main(parser.parse_args())
+
+    elif cmd == "compare-issues":
+        parser = argparse.ArgumentParser(prog="tagdiff compare-issues", description="Compare GitHub issues between two repos.")
+        parser.add_argument("_cmd", help=argparse.SUPPRESS)
+        parser.add_argument("repo1", help="First GitHub repo (owner/name)")
+        parser.add_argument("repo2", help="Second GitHub repo (owner/name)")
+        parser.add_argument("--from1", default=None, help="Start version for repo1")
+        parser.add_argument("--to1", default=None, help="End version for repo1")
+        parser.add_argument("--from2", default=None, help="Start version for repo2")
+        parser.add_argument("--to2", default=None, help="End version for repo2")
+        parser.add_argument("--state", default="all", choices=["open", "closed", "all"], help="Issue state filter (default: all)")
+        parser.add_argument("--labels", default=None, help="Comma-separated label filter")
+        parser.add_argument("--json", action="store_true", help="Output results as JSON")
+        parser.add_argument("--output", help="Save result to a file")
+        parser.add_argument("--verbose", action="store_true", help="Show progress during execution")
+        _add_cache_args(parser)
+        return compare_issues_main(parser.parse_args())
+
+    elif cmd == "compare-versions":
+        parser = argparse.ArgumentParser(prog="tagdiff compare-versions", description="Compare release versions between two GitHub repos.")
+        parser.add_argument("_cmd", help=argparse.SUPPRESS)
+        parser.add_argument("repo1", help="First GitHub repo (owner/name)")
+        parser.add_argument("repo2", help="Second GitHub repo (owner/name)")
+        parser.add_argument("--json", action="store_true", help="Output results as JSON")
+        parser.add_argument("--output", help="Save result to a file")
+        parser.add_argument("--verbose", action="store_true", help="Show progress during execution")
+        _add_cache_args(parser)
+        return compare_versions_main(parser.parse_args())
 
     elif cmd == "clear-cache":
         parser = argparse.ArgumentParser(prog="tagdiff clear-cache", description="Clear cached GitHub API responses.")
