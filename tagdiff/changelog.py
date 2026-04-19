@@ -15,10 +15,10 @@ def get_changes_between_versions(releases, old_version, new_version, structured=
         if tag == old_version:
             collecting = True
             continue
-        if tag == new_version:
-            break
         if collecting:
             to_process.append(release)
+        if tag == new_version:
+            break
 
     def process_release(release):
         tag = release.get("tag_name")
@@ -35,8 +35,10 @@ def get_changes_between_versions(releases, old_version, new_version, structured=
 
         if structured and changelog and changelog.strip():
             structured_data = generate_structured_changelog(changelog, model=model)
-            if structured_data:
+            if structured_data and "error" not in structured_data:
                 change_data["structured_changelog"] = structured_data
+            elif verbose and structured_data and "error" in structured_data:
+                print(f"  Structured changelog failed for {tag}: {structured_data['error']}")
 
         return tag, change_data
 

@@ -30,6 +30,12 @@ def fetch_releases(repo, stop_at_tag=None, cache=False, cache_ttl=DEFAULT_CACHE_
         if response.status_code != 200:
             if response.status_code == 403:
                 raise ValueError("GitHub API rate limit exceeded. Use GITHUB_TOKEN to increase limits.")
+            if response.status_code == 404:
+                raise ValueError(f"Repository not found: {repo}")
+            if page == 1:
+                raise ValueError(
+                    f"GitHub API returned {response.status_code} for {repo}: {response.text[:200]}"
+                )
             break
 
         data = response.json()

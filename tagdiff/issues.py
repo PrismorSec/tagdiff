@@ -102,7 +102,11 @@ def fetch_issues(repo, state="all", since=None, until=None, labels=None,
     # Apply until filter (created_at ≤ until)
     if until:
         until_dt = until if isinstance(until, datetime) else _parse_dt(until)
-        issues = [i for i in issues if _parse_dt(i["created_at"]) <= until_dt]
+        if until_dt is not None:
+            issues = [
+                i for i in issues
+                if (dt := _parse_dt(i["created_at"])) is not None and dt <= until_dt
+            ]
 
     if cache and issues:
         write_cache(repo, issues, cache_key)
@@ -161,7 +165,10 @@ def get_issues_for_version_range(repo, from_version=None, to_version=None,
 
     # Further narrow: only issues *created* within the range
     if since_dt:
-        issues = [i for i in issues if _parse_dt(i["created_at"]) >= since_dt]
+        issues = [
+            i for i in issues
+            if (dt := _parse_dt(i["created_at"])) is not None and dt >= since_dt
+        ]
 
     return {
         "repo": repo,

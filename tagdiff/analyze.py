@@ -77,7 +77,7 @@ def analyze_changelog(repo, query, from_version=None, to_version=None, model=Non
         raise ValueError(f"Could not fetch releases for repo: {repo}")
 
     filtered = filter_by_range(releases, from_version, to_version)
-    tags = [r.get("tag_name") for r in filtered]
+    tags = [r.get("tag_name") for r in filtered if r.get("tag_name")]
     print(f"       Found {len(filtered)} releases: {tags[0] if tags else '?'} -> {tags[-1] if tags else '?'}")
 
     # Step 2: Collect changelogs

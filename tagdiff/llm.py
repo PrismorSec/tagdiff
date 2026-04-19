@@ -57,10 +57,13 @@ def stream_analysis(system_prompt, user_content, model=None):
 
     full_response = []
     for chunk in response:
-        delta = chunk.choices[0].delta
-        if delta.content:
-            print(delta.content, end="", flush=True)
-            full_response.append(delta.content)
+        if not getattr(chunk, "choices", None):
+            continue
+        delta = getattr(chunk.choices[0], "delta", None)
+        content = getattr(delta, "content", None) if delta else None
+        if content:
+            print(content, end="", flush=True)
+            full_response.append(content)
 
     print()
     return "".join(full_response)
